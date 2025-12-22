@@ -243,6 +243,14 @@ app.get('/api/search', async (req, res) => {
     }
 
     if (sites.length === 0) {
+        // 即使没有站点也要返回 SSE 格式，否则 EventSource 会报错
+        if (stream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.write(`data: ${JSON.stringify({ error: '未配置资源站点，请在环境变量中设置 REMOTE_DB_URL' })}\n\n`);
+            res.write('event: done\ndata: {}\n\n');
+            return res.end();
+        }
         return res.json({ error: 'No sites configured. Please set REMOTE_DB_URL.' });
     }
 
