@@ -1,6 +1,6 @@
 // Service Worker with Image Caching for dongguaTV
-// v20: Fixed cross-device progress sync
-const CACHE_VERSION = 'v20';
+// v21: Fixed POST request cache error
+const CACHE_VERSION = 'v21';
 const STATIC_CACHE = 'donggua-static-' + CACHE_VERSION;
 const IMAGE_CACHE = 'donggua-images-' + CACHE_VERSION;
 
@@ -111,10 +111,15 @@ self.addEventListener('fetch', event => {
         return; // 让浏览器直接处理跨域请求
     }
 
+    // 跳过 POST 请求（Cache API 不支持 POST）
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                // 只缓存成功的同源请求
+                // 只缓存成功的同源 GET 请求
                 if (response && response.status === 200) {
                     const responseToCache = response.clone();
                     caches.open(STATIC_CACHE).then(cache => {
