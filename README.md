@@ -1,7 +1,24 @@
-# E视界 (DongguaTV Enhanced Edition)
+﻿# E视界 (DongguaTV Enhanced Edition)
 
 这是一个经过全面重构和升级的现代流媒体聚合播放器，基于 Node.js 和 Vue 3 构建。相比原版，本作引入了 Netflix 风格的沉浸式 UI、TMDb 数据驱动的动态榜单、以及智能的多源聚合搜索功能。
 
+---
+
+## 📚 目录 (Table of Contents)
+
+- [✨ 核心特性 (Features)](#-核心特性-features)
+- [🎨 界面升级 (UI Upgrade)](#-界面升级-ui-upgrade)
+- [🛠️ 技术栈 (Tech Stack)](#️-技术栈-tech-stack)
+- [🔧 前置准备 (Prerequisites)](#-前置准备-prerequisites)
+- [🌐 网络优化 & 代理 (Network & Proxy)](#-网络优化--代理-network--proxy)
+- [🔒 安全与高级功能 (Security & Advanced)](#-安全与高级功能-security--advanced)
+- [📦 安装与运行 (Installation)](#-安装与运行-installation)
+- [🚀 部署 (Deployment)](#-部署-deployment)
+- [🤖 Android APP 构建](#-android-app-构建-github-actions)
+- [💾 数据维护与备份](#-数据维护与备份)
+- [⚠️ 免责声明 (Disclaimer)](#️-免责声明-disclaimer)
+
+---
 
 ## ✨ 核心特性 (Core Features)
 
@@ -133,31 +150,94 @@
     TMDB_PROXY_URL=https://tmdb-proxy.your-name.workers.dev
     ```
 
-#### 方案二：使用自建 Nginx 反代
+### 4. 资源站 CORS 代理 (可选/推荐)
 
-```nginx
-location /tmdb-api/ {
-    proxy_pass https://api.themoviedb.org/;
-    proxy_set_header Host api.themoviedb.org;
-}
+当服务器或用户无法直接访问某些资源站时，系统会自动通过 CORS 代理中转请求。
 
-location /tmdb-image/ {
-    proxy_pass https://image.tmdb.org/;
-    proxy_set_header Host image.tmdb.org;
-}
+#### 支持的场景
+
+| 场景 | 描述 |
+|------|------|
+| **服务器端搜索** | 服务器无法访问资源站 API 时，自动通过代理搜索 |
+| **服务器端获取详情** | 同上，获取影片详情时自动回退到代理 |
+| **用户端视频播放** | 用户浏览器无法访问视频流时，自动代理播放 |
+| **慢速线路优化** | 直连延迟 >1500ms 时，自动尝试代理，选择更快的方式 |
+
+#### 核心功能
+
+- ✅ **智能学习**：自动记住需要代理的站点（24小时有效期）
+- ✅ **慢速检测**：直连延迟超过 1.5 秒时，自动测试代理是否更快
+- ✅ **m3u8 重写**：自动重写 m3u8 文件中的 ts 分片 URL，确保视频流完整代理
+- ✅ **防盗链绕过**：自动设置正确的 Referer 和 Origin 头
+
+#### 工作原理
+
+**服务器端（搜索/详情）：**
+1. 服务器先尝试直接访问资源站 API
+2. 如果直连失败或延迟过高，自动通过 CORS 代理重试
+3. 成功后会"记住"该站点需要代理，后续请求直接使用代理
+
+**用户端（播放）：**
+1. 用户端测速时，先尝试直接访问视频流
+2. 如果直连失败或延迟 >1500ms，自动通过 CORS 代理重试
+3. 代理会重写 m3u8 内容，将 ts 分片 URL 也改为代理 URL
+4. UI 上会显示三种状态：
+   - 🟢 **直连**：用户端可直接访问
+   - 🟡 **中转**：通过代理访问
+   - 🔵 **服务**：服务器端测速（无法客户端测试）
+
+#### 部署 CORS 代理 (Cloudflare Workers)
+
+1.  **登录 [Cloudflare Dashboard](https://dash.cloudflare.com)**
+    - 进入 **Workers & Pages** → **Create Worker**
+    - 命名如 `cors-proxy`
+
+2.  **部署代理代码**
+    - 复制 `cloudflare-cors-proxy.js` 文件**全部内容**到编辑器
+    - 点击 **"Save and Deploy"**
+    - 记录 Worker URL（如 `https://cors-proxy.your-name.workers.dev`）
+
+3.  **配置 .env**
+    ```env
+    CORS_PROXY_URL=https://cors-proxy.your-name.workers.dev
+    ```
+
+4.  **（可选）绑定自定义域名**
+    - Worker 设置 → Triggers → Custom Domains → 添加域名
+
+> ⚠️ **重要**：每次更新 `cloudflare-cors-proxy.js` 文件后，需要重新部署到 Cloudflare！
+
+#### 代理工作流程图
+
+```
+用户请求 m3u8 视频
+        ↓
+   代理获取 m3u8
+        ↓
+  重写 ts 分片 URL
+   (改为经过代理)
+        ↓
+  返回修改后的 m3u8
+        ↓
+播放器请求 ts 分片
+   (通过代理,带正确 Referer)
+        ↓
+    视频正常播放 ✓
 ```
 
-### 4. 🔒 安全配置与远程加载 (高级)
+---
+
+## 🔒 安全配置与远程加载 (高级)
 
 为了保护您的站点或统一管理配置，可以使用以下高级功能：
 
-#### 全局访问密码
+### 全局访问密码
 在 `.env` 文件中设置 `ACCESS_PASSWORD` 即可开启全局密码保护。开启后，用户访问任何页面都需要输入密码。
 ```env
 ACCESS_PASSWORD=your_secure_password
 ```
 
-#### 远程配置文件 (db.json)
+### 远程配置文件 (db.json)
 如果您有多个站点或希望远程更新配置，可以让服务器读取远程的 `db.json` 文件。
 在 `.env` 文件中设置：
 ```env
@@ -169,7 +249,7 @@ REMOTE_DB_URL=https://example.com/my-config/db.json
 > 2. 会有 5 分钟的内存缓存，避免频繁请求远程服务器。
 > 3. 如果远程获取失败，会自动降级使用本地的 `db.json` 文件。
 
-#### 多用户模式与观看历史同步 (新功能)
+### 多用户模式与观看历史同步 (新功能)
 
 支持多个密码，每个密码代表一个独立用户，拥有独立的观看历史。历史记录可在同一用户的不同设备间自动同步。
 
@@ -203,7 +283,7 @@ ACCESS_PASSWORD=admin_password,user1_pass,user2_pass
 > 如需使用历史同步，请在 `.env` 中设置 `CACHE_TYPE=sqlite`。
 
 **使用场景示例**：
-```
+```bash
 # admin_password - 管理员使用，本地存储
 # user1_pass - 家人A使用，全设备同步  
 # user2_pass - 家人B使用，全设备同步
@@ -238,8 +318,6 @@ chmod +x install.sh
 - 安装目录 (默认 /opt/dongguaTV)
 
 > **提示**：安装完成后，您可以随时编辑安装目录下的 `.env` 文件，修改 `CACHE_TYPE` 来切换缓存模式（需要重启服务）。
-
----
 
 ### 手动本地运行
 
@@ -358,6 +436,7 @@ docker run -d -p 3000:3000 \
   --name donggua-tv \
   --restart unless-stopped \
   ghcr.io/ednovas/dongguatv:latest
+```
 
 ```bash
 # 1. ⚠️ 重要：先创建文件，防止 Docker 将其识别为目录
@@ -383,9 +462,8 @@ docker run -d -p 3000:3000 \
   ghcr.io/ednovas/dongguatv:latest
 ```
 
-> **🔴 常见错误警告**：如果启动失败且日志报错 `EISDIR: illegal operation on a directory`，说明您没有先创建 `db.json` 文件，Docker 自动创建了同名文件夹。请删除该文件夹 (`rm -rf db.json`) 并重新执行上述 `touch` 命令创建文件。
-
-
+> **� 常见错误警告**：如果启动失败且日志报错 `EISDIR: illegal operation on a directory`，说明您没有先创建 `db.json` 文件，Docker 自动创建了同名文件夹。请删除该文件夹 (`rm -rf db.json`) 并重新执行上述 `touch` 命令创建文件。
+>
 > **注意**：如果不挂载 `-v` 卷，您的站点配置(db.json)和缓存(cache.db)将在容器重启后丢失。请确保当前目录下有 `db.json` 文件（如果没有，第一次运行后可以从容器内复制出来）。
 
 #### 方案二：本地构建
@@ -595,9 +673,23 @@ docker run -d -p 3000:3000 \
 | **默认服务器** | `https://ednovas.video` |
 | **图标来源** | 自动从 `public/icon.png` 生成 |
 
-#### 🔧 自定义服务器地址
+#### 🔧 自定义构建 (新功能)
+无需修改代码，直接在 GitHub 网页上自定义并构建 App：
 
-如果您 Fork 了本项目并部署了自己的服务器，可以修改 App 连接地址：
+1.  进入仓库的 **Actions** 页面。
+2.  在左侧选择 **"Android Build & Release"**。
+3.  点击右侧的 **Run workflow** 按钮。
+4.  输入配置信息：
+    - **Server URL**: 您的服务器地址 (例如 `https://movie.example.com`)
+    - **App Name**: App 名称 (例如 `我的私人影院`)
+    - **Version Tag**: 版本号 (例如 `v1.0.0`)
+5.  点击 **Run workflow** 开始构建。
+
+等待构建完成后，在 Releases 页面即可下载您定制的 App。
+
+#### 🔧 代码修改方式 (高级)
+
+如果您 Fork 了本项目并希望永久修改默认配置：
 
 1.  编辑 `capacitor.config.json`，修改 `server.url` 为您的服务器地址：
     ```json
@@ -668,6 +760,7 @@ pm2 restart donggua-tv
 本项目由 **kk爱吃王哥呆阿龟头** 设计编写， **ednovas** 优化了功能和部署流程。
 数据由 **TMDb** 和各式 **Maccms** API 提供。
 
+---
 
 ## ⚠️ 免责声明 (Disclaimer)
 
