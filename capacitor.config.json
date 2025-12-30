@@ -3,7 +3,7 @@
     "appName": "冬瓜TV",
     "webDir": "public",
     "server": {
-        "url": "https://donggua-tv.muyiluling.com",
+        "url": "https://donggua.muyiluling.com",
         "cleartext": true
     },
     "plugins": {
@@ -15,3 +15,4 @@
     }
 
 }
+
