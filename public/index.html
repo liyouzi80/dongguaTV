@@ -2215,6 +2215,54 @@
             filter: drop-shadow(0 0 3px rgba(229, 9, 20, 0.5));
         }
 
+        /* 设置开关样式 */
+        .settings-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .settings-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .settings-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .settings-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .settings-switch input:checked+.settings-slider {
+            background: linear-gradient(135deg, #e50914, #ff4757);
+        }
+
+        .settings-switch input:checked+.settings-slider:before {
+            transform: translateX(24px);
+        }
+
         /* 电影详情弹窗 */
         .info-modal-overlay {
             position: fixed;
@@ -2964,7 +3012,8 @@
             </div>
             <!-- 动态生成的榜单 Rows -->
             <div class="section-container animate__animated animate__fadeInUp"
-                v-for="(config, key, index) in rowConfigs" :key="key" :ref="key + '-section'" :data-row-key="key">
+                v-for="(config, key, index) in rowConfigs" :key="key" :ref="key + '-section'" :data-row-key="key"
+                v-show="!(key === 'randomRow' && hideRandomRow)">
                 <!-- 标题区（始终显示，用于懒加载触发） -->
                 <div class="section-header" style="display: flex; align-items: center;">
                     <div class="section-line"></div>
@@ -3121,10 +3170,63 @@
                 <i class="fas fa-tv"></i>
                 <span>开启 TV 模式</span>
             </div>
+            <!-- 设置按钮 -->
+            <div class="tv-mode-toggle" @click="showSettingsModal = true" style="margin-top: 10px;" title="偏好设置">
+                <i class="fas fa-cog"></i>
+                <span>偏好设置</span>
+            </div>
             <!-- 隐藏的退出登录按钮：连续点击3次退出 -->
             <div style="font-size:10px; margin-top:5px; opacity:0.5; cursor: default; user-select: none;"
                 @click="handleFooterClick" :title="footerClickCount >= 2 ? '再点击1次退出登录' : ''">
                 Data provided by TMDb & Maccms APIs
+            </div>
+        </div>
+
+        <!-- 设置弹窗 -->
+        <div class="info-modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
+            <div class="info-modal" style="max-width: 450px;">
+                <button class="info-modal-close" @click="showSettingsModal = false"><i
+                        class="fas fa-times"></i></button>
+                <div style="padding: 30px;">
+                    <h2 style="color: #fff; margin-bottom: 25px; font-size: 1.5rem;">
+                        <i class="fas fa-cog" style="margin-right: 10px; color: #e50914;"></i>偏好设置
+                    </h2>
+
+                    <!-- 随机盲盒开关 -->
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div>
+                            <div style="color: #fff; font-size: 15px; font-weight: 500;">隐藏随机盲盒</div>
+                            <div style="color: #888; font-size: 12px; margin-top: 4px;">关闭首页的随机推荐板块</div>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" v-model="hideRandomRow" @change="saveSettings('hideRandomRow')">
+                            <span class="settings-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- NSFW 过滤开关 -->
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div>
+                            <div style="color: #fff; font-size: 15px; font-weight: 500;">过滤成人内容</div>
+                            <div style="color: #888; font-size: 12px; margin-top: 4px;">过滤随机盲盒中的不适宜内容</div>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" v-model="filterNsfw" @change="saveSettings('filterNsfw')">
+                            <span class="settings-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- 提示信息 -->
+                    <div
+                        style="margin-top: 20px; padding: 15px; background: rgba(229, 9, 20, 0.1); border-radius: 10px; border: 1px solid rgba(229, 9, 20, 0.2);">
+                        <div style="color: #ff6b6b; font-size: 13px;">
+                            <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                            设置会自动保存，刷新页面后生效完整的过滤效果
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -3545,6 +3647,11 @@
                     autoRetryMessage: '',  // 自动切换提示信息
                     watchHistory: [],  // 用户观看历史记录
                     wakeLock: null,  // Screen Wake Lock 对象（用于保持屏幕常亮）
+
+                    // 🎛️ 用户偏好设置
+                    showSettingsModal: false,  // 设置弹窗显示状态
+                    hideRandomRow: (function () { try { return localStorage.getItem('donggua_hide_random') === 'true'; } catch (e) { return false; } })(),  // 隐藏随机盲盒
+                    filterNsfw: (function () { try { return localStorage.getItem('donggua_filter_nsfw') !== 'false'; } catch (e) { return true; } })(),  // 过滤 NSFW 内容（默认开启）
 
                     // 📱 原生 App 检测 (Capacitor)
                     isNativeApp: !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()),
@@ -4423,6 +4530,26 @@
                     }, 800);
                 },
 
+                // 保存用户偏好设置
+                saveSettings(key) {
+                    try {
+                        if (key === 'hideRandomRow') {
+                            localStorage.setItem('donggua_hide_random', this.hideRandomRow ? 'true' : 'false');
+                            console.log('[设置] 隐藏随机盲盒:', this.hideRandomRow);
+                        } else if (key === 'filterNsfw') {
+                            localStorage.setItem('donggua_filter_nsfw', this.filterNsfw ? 'true' : 'false');
+                            console.log('[设置] 过滤成人内容:', this.filterNsfw);
+                            // 如果开启了过滤，清空当前的随机列表让它重新加载
+                            if (this.filterNsfw) {
+                                this.rowLists.randomRow = null;
+                                this.fetchRandomMixed();
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[设置] 保存失败:', e);
+                    }
+                },
+
                 // 页脚隐蔽退出（连续点击3次触发）
                 handleFooterClick() {
                     this.footerClickCount++;
@@ -4654,16 +4781,32 @@
                 },
                 // 滚动到指定区域（使用 -section 后缀的 ref）
                 scrollToSection(refName) {
-                    this.$nextTick(() => {
-                        const refKey = refName + '-section';
-                        const sectionRef = this.$refs[refKey];
-                        let el = Array.isArray(sectionRef) ? sectionRef[0] : sectionRef;
-                        if (el) {
-                            // 预留更多空间确保标题可见（至少 120px）
-                            const top = el.getBoundingClientRect().top + window.scrollY - 120;
-                            window.scrollTo({ top: top, behavior: 'smooth' });
-                        }
-                    });
+                    // 先找到目标元素
+                    const refKey = refName + '-section';
+                    const sectionRef = this.$refs[refKey];
+                    let el = Array.isArray(sectionRef) ? sectionRef[0] : sectionRef;
+                    if (!el) return;
+
+                    // 辅助函数：执行滚动
+                    const doScroll = () => {
+                        const rect = el.getBoundingClientRect();
+                        const targetTop = rect.top + window.scrollY - 120;
+                        window.scrollTo({ top: targetTop, behavior: 'smooth' });
+                    };
+
+                    // 第一次滚动
+                    doScroll();
+
+                    // 由于图片懒加载可能导致布局偏移，延迟后再次微调位置
+                    // 等待 400ms 让大部分图片完成加载
+                    setTimeout(() => {
+                        doScroll();
+                    }, 400);
+
+                    // 再次微调（800ms 后），处理慢速网络
+                    setTimeout(() => {
+                        doScroll();
+                    }, 800);
                 },
 
                 // 获取当前查看页的数据（每页20条）
@@ -5158,6 +5301,7 @@
 
                     const randomRequests = [];
                     const types = ['movie', 'tv'];
+                    // 所有类型（包括恐怖和浪漫），通过分级过滤来排除成人内容
                     const genres = [28, 35, 10749, 16, 80, 18, 14, 27, 10751, 9648];
 
                     // 每次抓取生成 4 个不同的随机源（基于种子）
@@ -5169,7 +5313,20 @@
                         const genreIndex = Math.floor(seededRandom(baseSeed, 3) * genres.length);
 
                         // 使用固定的参数组合，确保可缓存
-                        const url = `/api/tmdb-proxy?path=${encodeURIComponent('/discover/' + type)}&page=${page}&sort_by=popularity.desc&with_genres=${genres[genreIndex]}`;
+                        // 添加 include_adult=false 过滤明确的成人内容
+                        // 添加分级过滤：电影 PG-13 以下，电视 TV-14 以下（排除 R 级、NC-17 等情色内容）
+                        let adultParam = '';
+                        if (this.filterNsfw) {
+                            adultParam = '&include_adult=false';
+                            if (type === 'movie') {
+                                // 美国电影分级：G, PG, PG-13, R, NC-17，只显示 PG-13 及以下
+                                adultParam += '&certification_country=US&certification.lte=PG-13';
+                            } else {
+                                // 美国电视分级：TV-Y, TV-Y7, TV-G, TV-PG, TV-14, TV-MA，只显示 TV-14 及以下
+                                adultParam += '&certification_country=US&certification.lte=TV-14';
+                            }
+                        }
+                        const url = `/api/tmdb-proxy?path=${encodeURIComponent('/discover/' + type)}&page=${page}&sort_by=popularity.desc&with_genres=${genres[genreIndex]}${adultParam}`;
                         randomRequests.push(fetch(url).then(res => res.json()));
                     }
 

@@ -25,6 +25,7 @@ https://ednovas-test.vercel.app （不包含任何数据）
 - [🔒 安全与高级功能 (Security & Advanced)](#-安全与高级功能-security--advanced)
 - [🛡️ 广告过滤功能](#️-广告过滤功能)
 - [📺 TV 模式切换](#-tv-模式切换)
+- [🎛️ 偏好设置](#️-偏好设置)
 - [📦 安装与运行 (Installation)](#-安装与运行-installation)
 - [🚀 部署 (Deployment)](#-部署-deployment)
 - [🤖 Android APP 构建](#-android-app-构建-github-actions)
@@ -431,6 +432,53 @@ ACCESS_PASSWORD=admin123,familyA_pass,familyB_pass
 
 ---
 
+## 🎛️ 偏好设置
+
+页面底部提供了一个偏好设置入口，允许用户自定义浏览体验。
+
+### 入口位置
+
+在页面最底部的 footer 区域，有一个带齿轮图标的"偏好设置"按钮：
+
+```
+┌────────────────────────────────────────┐
+│             页面内容...                 │
+├────────────────────────────────────────┤
+│           [ 📺 TV ]                    │
+│         [ ⚙️ 偏好设置 ]  ← 点击打开    │
+│   Data provided by TMDb & Maccms APIs  │
+└────────────────────────────────────────┘
+```
+
+### 可配置选项
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| **隐藏随机盲盒** | 关闭首页的"随机盲盒·惊喜呈现"推荐板块 | 关闭 |
+| **过滤成人内容** | 过滤随机盲盒中的不适宜内容（成人、恐怖类型） | **开启** |
+
+### 功能说明
+
+#### 隐藏随机盲盒
+- 开启后，首页将不显示"随机盲盒·惊喜呈现"板块
+- 适合不喜欢随机推荐或希望页面更简洁的用户
+
+#### 过滤成人内容
+- 开启后，随机盲盒将：
+  - 添加 `include_adult=false` 参数过滤 TMDB 的成人标记内容
+  - **添加 MPAA 分级过滤**：电影只显示 PG-13 及以下 (排除 R、NC-17 级情色内容如《五十度灰》)
+  - **添加 TV 分级过滤**：电视剧只显示 TV-14 及以下 (排除 TV-MA 级成人内容)
+- 默认开启，适合家庭环境使用
+- 关闭后可看到更多类型的随机推荐（包括 R 级内容）
+
+### 存储机制
+
+- 设置自动保存到浏览器的 `localStorage`
+- 跨会话保持，刷新页面后依然生效
+- 不同设备/浏览器的设置相互独立
+
+---
+
 ## 📦 安装与运行 (Installation)
 
 ### 🚀 一键安装脚本 (推荐)
@@ -673,9 +721,23 @@ docker run -d -p 3000:3000 \
 
 1. **Settings → Environment Variables** 中添加以下变量：
    - `TMDB_API_KEY` - TMDb API 密钥（**必填**）
-   - `REMOTE_DB_URL` - 远程站点配置 JSON 地址（**Vercel 必填**，因为无法读取本地 db.json）
+   - `REMOTE_DB_URL` - 远程站点配置 JSON 地址（二选一）
+   - `SITES_JSON` - 直接嵌入站点配置 JSON（二选一，推荐！避免远程拉取问题）
    - `ACCESS_PASSWORD` - 访问密码（可选）
    - `TMDB_PROXY_URL` - 大陆用户反代地址（可选）
+
+   > **💡 SITES_JSON 使用方法**（推荐）：
+   > 
+   > 如果 `REMOTE_DB_URL` 无法正常工作，可以直接将 db.json 内容或 Base64 编码后填入 `SITES_JSON`：
+   > 
+   > **方式一：直接 JSON（适合站点少的情况）**
+   > ```
+   > SITES_JSON={"sites":[{"key":"ffzy","name":"非凡影视","api":"https://api.ffzyapi.com/api.php/provide/vod/"}]}
+   > ```
+   > 
+   > **方式二：Base64 编码（推荐，避免 JSON 特殊字符问题）**
+   > 1. 在线工具 [base64encode.org](https://www.base64encode.org) 将 db.json 内容编码
+   > 2. 将编码后的字符串填入 `SITES_JSON`
 
 2. **环境变量不生效？** 请按以下步骤排查：
 
